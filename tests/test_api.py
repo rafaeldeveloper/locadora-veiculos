@@ -10,6 +10,10 @@ VEHICLE = {
 }
 
 
+def person(name, email, cpf):
+    return {"name": name, "email": email, "password": "senha123", "cpf": cpf, "phone": "11987654321"}
+
+
 def day(n):
     return (date.today() + timedelta(days=n)).isoformat()
 
@@ -27,8 +31,12 @@ def test_register_login_and_me(client, customer):
 
 
 def test_duplicate_email_rejected(client, customer):
-    r = client.post("/api/auth/register", json={"name": "Outra", "email": "MARIA@test.com", "password": "senha123"})
+    r = client.post("/api/auth/register", json={**person("Outra Pessoa", "MARIA@test.com", "111.444.777-35")})
     assert r.status_code == 409
+    assert r.json()["errors"] == {"email": "Já existe uma conta com este e-mail"}
+
+    r = client.post("/api/auth/register", json={**person("Outra Pessoa", "outra@test.com", "52998224725")})
+    assert r.json()["errors"] == {"cpf": "Já existe uma conta com este CPF"}
 
 
 def test_wrong_password(client, customer):
@@ -112,14 +120,14 @@ def test_cancel_frees_vehicle(client, admin, customer):
 
 def test_rental_requires_license_and_valid_dates(client, admin):
     v = create_vehicle(client, admin)
-    client.post("/api/auth/register", json={"name": "Joao", "email": "joao@test.com", "password": "senha123"})
+    client.post("/api/auth/register", json=person("Joao Lima", "joao@test.com", "111.444.777-35"))
     from tests.conftest import auth_header
 
     joao = auth_header(client, "joao@test.com", "senha123")
     body = {"vehicle_id": v["id"], "start_date": day(1), "end_date": day(3)}
     assert client.post("/api/rentals", json=body, headers=joao).status_code == 422
 
-    client.patch("/api/auth/me", json={"driver_license": "999"}, headers=joao)
+    client.patch("/api/auth/me", json={"driver_license": "98765432100"}, headers=joao)
     assert client.post("/api/rentals", json={**body, "end_date": day(1)}, headers=joao).status_code == 422
     assert client.post("/api/rentals", json={**body, "start_date": day(-1)}, headers=joao).status_code == 422
 
@@ -129,7 +137,7 @@ def test_other_user_cannot_cancel(client, admin, customer):
     rid = client.post(
         "/api/rentals", json={"vehicle_id": v["id"], "start_date": day(1), "end_date": day(2)}, headers=customer
     ).json()["id"]
-    client.post("/api/auth/register", json={"name": "Ze", "email": "ze@test.com", "password": "senha123"})
+    client.post("/api/auth/register", json=person("Ze Silva", "ze@test.com", "123.456.789-09"))
     from tests.conftest import auth_header
 
     ze = auth_header(client, "ze@test.com", "senha123")
@@ -148,3 +156,59 @@ def test_admin_manages_users(client, admin, customer):
     client.patch(f"/api/admin/users/{maria['id']}", json={"active": False}, headers=admin)
     assert client.get("/api/auth/me", headers=customer).status_code == 401
     assert client.get("/api/admin/users", headers=customer).status_code == 401
+
+
+def test_register_validation_messages(client):
+    r = client.post(
+        "/api/auth/register",
+        json={"name": "A", "email": "x@y", "password": "abcdefgh", "cpf": "111.111.111-11", "phone": "12", "driver_license": "123"},
+    )
+    assert r.status_code == 422
+    body = r.json()
+    assert body["detail"] == "Verifique os campos destacados"
+    assert body["errors"] == {
+        "name": "Informe nome e sobrenome, só com letras",
+        "email": "E-mail inválido",
+        "password": "A senha precisa ter letras e números",
+        "cpf": "CPF inválido",
+        "phone": "Telefone inválido: informe DDD e número",
+        "driver_license": "A CNH tem 11 dígitos",
+    }
+
+    r = client.post("/api/auth/register", json={})
+    assert r.json()["errors"]["cpf"] == "Campo obrigatório"
+
+
+def test_register_normalizes_documents(client):
+    r = client.post("/api/auth/register", json={**person("  José   D'Ávila ", " Jose@Test.com", "390.533.447-05"), "driver_license": ""})
+    assert r.status_code == 201, r.text
+    u = r.json()
+    assert (u["name"], u["email"], u["cpf"], u["phone"], u["driver_license"]) == (
+        "José D'Ávila", "jose@test.com", "39053344705", "11987654321", None
+    )
+
+
+def test_profile_can_clear_optional_fields(client, customer):
+    r = client.patch("/api/auth/me", json={"phone": "", "driver_license": None, "name": None}, headers=customer)
+    assert r.status_code == 200
+    assert (r.json()["name"], r.json()["phone"], r.json()["driver_license"]) == ("Maria Souza", None, None)
+
+
+def test_vehicle_validation_messages(client, admin):
+    r = client.post("/api/vehicles", json={**VEHICLE, "plate": "AB-12345", "year": 1970, "daily_rate": "0"}, headers=admin)
+    errors = r.json()["errors"]
+    assert errors["plate"] == "Placa inválida: use ABC-1234 ou ABC1D23"
+    assert errors["year"].startswith("Ano deve estar entre 1980")
+    assert errors["daily_rate"] == "Deve ser maior que 0"
+
+    v = create_vehicle(client, admin)
+    r = client.patch(f"/api/vehicles/{v['id']}", json={"brand": "  ", "category": None}, headers=admin)
+    assert r.json()["errors"] == {"brand": "Campo obrigatório"}
+    r = client.post("/api/vehicles", json={**VEHICLE, "plate": "abc1d23"}, headers=admin)
+    assert r.json()["errors"] == {"plate": "Placa já cadastrada"}
+
+
+def test_rental_date_errors_point_to_field(client, admin, customer):
+    v = create_vehicle(client, admin)
+    r = client.post("/api/rentals", json={"vehicle_id": v["id"], "start_date": day(3), "end_date": day(3)}, headers=customer)
+    assert r.json()["errors"] == {"end_date": "A devolução deve ser depois da retirada"}

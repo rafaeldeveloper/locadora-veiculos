@@ -49,17 +49,18 @@ def main() -> None:
     (DOCS / "app.js").write_text(js)
 
     html = (SRC / "index.html").read_text()
-    html = replace_once(html, 'href="/static/style.css"', 'href="style.css"')
     html = replace_once(
         html,
         '<script src="/static/app.js"></script>',
-        '<script src="local-api.js"></script>\n  <script src="app.js"></script>',
+        '<script src="local-api.js"></script>\n  <script src="/static/app.js"></script>',
     )
+    html = html.replace('"/static/', '"')
     html = replace_once(html, "<title>Locadora de Veículos</title>", "<title>Locadora de Veículos (demo)</title>")
     html = replace_once(html, "<body>\n", "<body>\n" + BANNER)
     (DOCS / "index.html").write_text(html)
 
     (DOCS / "style.css").write_text((SRC / "style.css").read_text() + BANNER_CSS)
+    (DOCS / "validation.js").write_text((SRC / "validation.js").read_text())
     print("docs/ atualizado")
 
 

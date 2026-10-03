@@ -2,12 +2,14 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
 from app.config import ADMIN_EMAIL, ADMIN_NAME, ADMIN_PASSWORD
 from app.database import Base, SessionLocal, engine
+from app.errors import FieldError, field_error_handler, validation_handler
 from app.models import User
 from app.routers import admin, auth, pricing, rentals, vehicles
 from app.security import hash_password
@@ -38,6 +40,8 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Locadora de Veículos", version="1.0.0", lifespan=lifespan)
+app.add_exception_handler(RequestValidationError, validation_handler)
+app.add_exception_handler(FieldError, field_error_handler)
 
 for module in (auth, vehicles, pricing, rentals, admin):
     app.include_router(module.router)

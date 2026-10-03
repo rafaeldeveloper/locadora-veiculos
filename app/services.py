@@ -2,10 +2,11 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
-from fastapi import HTTPException, status
+from fastapi import status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.errors import FieldError
 from app.models import PricingRule, Rental, Vehicle
 
 BLOCKING_STATUSES = ("reserved", "active")
@@ -27,7 +28,7 @@ def to_cents(value: Decimal) -> int:
 def rental_days(start: date, end: date) -> int:
     days = (end - start).days
     if days < 1:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "A devolução deve ser depois da retirada")
+        raise FieldError(status.HTTP_422_UNPROCESSABLE_ENTITY, "end_date", "A devolução deve ser depois da retirada")
     return days
 
 

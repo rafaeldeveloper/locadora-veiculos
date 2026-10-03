@@ -33,6 +33,13 @@ def admin(client):
 def customer(client):
     client.post(
         "/api/auth/register",
-        json={"name": "Maria", "email": "maria@test.com", "password": "senha123", "driver_license": "12345678900"},
+        json={
+            "name": "Maria Souza",
+            "email": "maria@test.com",
+            "password": "senha123",
+            "cpf": "529.982.247-25",
+            "phone": "(45) 99999-1234",
+            "driver_license": "12345678900",
+        },
     )
     return auth_header(client, "maria@test.com", "senha123")

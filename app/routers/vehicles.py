@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import require_admin
+from app.errors import FieldError
 from app.models import Rental, Vehicle
 from app.schemas import Category, VehicleCreate, VehicleOut, VehicleUpdate
 from app.services import is_available, rental_days, to_cents
@@ -48,7 +49,7 @@ def get_vehicle(vehicle_id: int, db: Session = Depends(get_db)):
 @router.post("", response_model=VehicleOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin)])
 def create_vehicle(data: VehicleCreate, db: Session = Depends(get_db)):
     if db.scalar(select(Vehicle).where(Vehicle.plate == data.plate)):
-        raise HTTPException(status.HTTP_409_CONFLICT, "Placa já cadastrada")
+        raise FieldError(status.HTTP_409_CONFLICT, "plate", "Placa já cadastrada")
     values = data.model_dump(exclude={"daily_rate"})
     vehicle = Vehicle(**values, daily_rate_cents=to_cents(data.daily_rate))
     db.add(vehicle)
@@ -59,7 +60,7 @@ def create_vehicle(data: VehicleCreate, db: Session = Depends(get_db)):
 @router.patch("/{vehicle_id}", response_model=VehicleOut, dependencies=[Depends(require_admin)])
 def update_vehicle(vehicle_id: int, data: VehicleUpdate, db: Session = Depends(get_db)):
     vehicle = get_vehicle_or_404(db, vehicle_id)
-    changes = data.model_dump(exclude_unset=True)
+    changes = {k: v for k, v in data.model_dump(exclude_unset=True).items() if v is not None or k == "color"}
     if "daily_rate" in changes:
         vehicle.daily_rate_cents = to_cents(changes.pop("daily_rate"))
     for field, value in changes.items():

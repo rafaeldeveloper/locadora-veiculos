@@ -2,7 +2,9 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app import validators
 
 Role = Literal["customer", "admin"]
 Category = Literal["economico", "intermediario", "suv", "executivo", "utilitario"]
@@ -22,24 +24,47 @@ class Token(BaseModel):
 
 
 class LoginIn(BaseModel):
-    email: EmailStr
-    password: str
+    email: str
+    password: str = Field(min_length=1)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        return v.strip().lower()
+
+
+def blank_to_none(v):
+    return None if isinstance(v, str) and not v.strip() else v
 
 
 class UserCreate(BaseModel):
-    name: str = Field(min_length=2, max_length=120)
-    email: EmailStr
-    password: str = Field(min_length=6, max_length=72)
-    phone: str | None = Field(default=None, max_length=30)
-    cpf: str | None = Field(default=None, pattern=r"^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$")
-    driver_license: str | None = Field(default=None, max_length=20)
+    name: str
+    email: str
+    password: str
+    cpf: str
+    phone: str
+    driver_license: str | None = None
+
+    _blank = field_validator("driver_license", mode="before")(blank_to_none)
+    _name = field_validator("name")(validators.full_name)
+    _email = field_validator("email")(validators.email)
+    _password = field_validator("password")(validators.password)
+    _cpf = field_validator("cpf")(validators.cpf)
+    _phone = field_validator("phone")(validators.phone)
+    _cnh = field_validator("driver_license")(validators.driver_license)
 
 
 class UserUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=2, max_length=120)
-    phone: str | None = Field(default=None, max_length=30)
-    driver_license: str | None = Field(default=None, max_length=20)
-    password: str | None = Field(default=None, min_length=6, max_length=72)
+    name: str | None = None
+    phone: str | None = None
+    driver_license: str | None = None
+    password: str | None = None
+
+    _blank = field_validator("phone", "driver_license", "password", mode="before")(blank_to_none)
+    _name = field_validator("name")(validators.full_name)
+    _password = field_validator("password")(validators.password)
+    _phone = field_validator("phone")(validators.phone)
+    _cnh = field_validator("driver_license")(validators.driver_license)
 
 
 class AdminUserUpdate(BaseModel):
@@ -62,10 +87,10 @@ class UserOut(BaseModel):
 
 
 class VehicleBase(BaseModel):
-    plate: str = Field(min_length=7, max_length=8)
+    plate: str
     brand: str = Field(min_length=1, max_length=60)
     model: str = Field(min_length=1, max_length=60)
-    year: int = Field(ge=1980, le=2100)
+    year: int
     category: Category
     color: str | None = Field(default=None, max_length=30)
     seats: int = Field(default=5, ge=1, le=20)
@@ -74,10 +99,10 @@ class VehicleBase(BaseModel):
     daily_rate: Decimal = Field(gt=0, max_digits=10, decimal_places=2)
     status: VehicleStatus = "available"
 
-    @field_validator("plate")
-    @classmethod
-    def normalize_plate(cls, v: str) -> str:
-        return v.replace("-", "").upper()
+    _strip = field_validator("brand", "model", mode="before")(lambda v: v.strip() if isinstance(v, str) else v)
+    _color = field_validator("color", mode="before")(lambda v: v.strip() or None if isinstance(v, str) else v)
+    _plate = field_validator("plate")(validators.plate)
+    _year = field_validator("year")(validators.vehicle_year)
 
 
 class VehicleCreate(VehicleBase):
@@ -87,7 +112,7 @@ class VehicleCreate(VehicleBase):
 class VehicleUpdate(BaseModel):
     brand: str | None = Field(default=None, min_length=1, max_length=60)
     model: str | None = Field(default=None, min_length=1, max_length=60)
-    year: int | None = Field(default=None, ge=1980, le=2100)
+    year: int | None = None
     category: Category | None = None
     color: str | None = Field(default=None, max_length=30)
     seats: int | None = Field(default=None, ge=1, le=20)
@@ -95,6 +120,10 @@ class VehicleUpdate(BaseModel):
     fuel: Fuel | None = None
     daily_rate: Decimal | None = Field(default=None, gt=0, max_digits=10, decimal_places=2)
     status: VehicleStatus | None = None
+
+    _strip = field_validator("brand", "model", mode="before")(lambda v: v.strip() if isinstance(v, str) else v)
+    _color = field_validator("color", mode="before")(lambda v: v.strip() or None if isinstance(v, str) else v)
+    _year = field_validator("year")(validators.vehicle_year)
 
 
 class VehicleOut(BaseModel):

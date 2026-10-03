@@ -6,10 +6,36 @@ const LocalApi = (() => {
   const TRANSITIONS = { reserved: ["active", "cancelled"], active: ["completed"], completed: [], cancelled: [] };
 
   class HttpError extends Error {
-    constructor(status, detail) {
+    constructor(status, detail, errors) {
       super(detail);
       this.status = status;
+      this.errors = errors;
     }
+  }
+
+  const { rules, digits } = Validation;
+  const fieldError = (status, field, message) => new HttpError(status, message, { [field]: message });
+  const blank = (v) => v === undefined || v === null || String(v).trim() === "";
+
+  // Valida só os campos presentes (ou obrigatórios) e lança 422 com o mapa de erros.
+  function check(body, spec, partial = false) {
+    const errors = {};
+    for (const [field, names] of Object.entries(spec)) {
+      const required = names.includes("required");
+      const value = body[field];
+      if (blank(value)) {
+        if (required && (!partial || field in body)) errors[field] = "Campo obrigatório";
+        continue;
+      }
+      for (const name of names.filter((n) => n !== "required")) {
+        const message = rules[name](String(value));
+        if (message) {
+          errors[field] = message;
+          break;
+        }
+      }
+    }
+    if (Object.keys(errors).length) throw new HttpError(422, "Verifique os campos destacados", errors);
   }
 
   async function hash(text) {
@@ -104,7 +130,7 @@ const LocalApi = (() => {
   function rentalDays(start, end) {
     if (!start || !end) throw new HttpError(422, "Informe retirada e devolução");
     const days = (parseDay(end) - parseDay(start)) / 86400000;
-    if (days < 1) throw new HttpError(422, "A devolução deve ser depois da retirada");
+    if (days < 1) throw fieldError(422, "end_date", "A devolução deve ser depois da retirada");
     return days;
   }
 
@@ -120,42 +146,42 @@ const LocalApi = (() => {
     !db.rentals.some((r) => r.vehicle_id === vehicleId && ["reserved", "active"].includes(r.status) && r.start_date < end && r.end_date > start);
 
   function validateVehicle(data, partial) {
-    const req = (k) => !partial || k in data;
-    if (req("plate") && !/^[A-Z0-9]{7}$/.test(data.plate)) throw new HttpError(422, "Placa inválida");
-    if (req("brand") && !data.brand) throw new HttpError(422, "Informe a marca");
-    if (req("model") && !data.model) throw new HttpError(422, "Informe o modelo");
-    if (req("year") && !(data.year >= 1980 && data.year <= 2100)) throw new HttpError(422, "Ano inválido");
-    if (req("category") && !CATEGORIES.includes(data.category)) throw new HttpError(422, "Categoria inválida");
-    if (req("daily_rate") && !(Number(data.daily_rate) > 0)) throw new HttpError(422, "Diária deve ser maior que zero");
-    if ("status" in data && !VEHICLE_STATUS.includes(data.status)) throw new HttpError(422, "Status inválido");
+    check(data, {
+      plate: partial ? [] : ["required", "plate"], brand: ["required"], model: ["required"],
+      year: ["required", "year"], daily_rate: ["required", "money"],
+    }, partial);
+    if ((!partial || "category" in data) && !CATEGORIES.includes(data.category)) throw fieldError(422, "category", "Opção inválida");
+    if ("status" in data && !VEHICLE_STATUS.includes(data.status)) throw fieldError(422, "status", "Opção inválida");
   }
 
   function normalizeVehicle(data) {
     const out = { ...data };
-    if ("plate" in out) out.plate = String(out.plate).replace("-", "").toUpperCase();
+    if ("plate" in out) out.plate = String(out.plate).replace(/[-\s]/g, "").toUpperCase();
+    for (const k of ["brand", "model", "color"]) if (typeof out[k] === "string") out[k] = out[k].trim();
     for (const k of ["year", "seats"]) if (k in out) out[k] = Number(out[k]);
     return out;
   }
 
   const routes = [
     ["POST", /^\/api\/auth\/register$/, async (db, { body }) => {
-      const email = String(body.email || "").trim().toLowerCase();
-      if (!body.name || body.name.length < 2) throw new HttpError(422, "Nome muito curto");
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new HttpError(422, "E-mail inválido");
-      if (!body.password || body.password.length < 6) throw new HttpError(422, "A senha precisa de ao menos 6 caracteres");
-      if (body.cpf && !/^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$/.test(body.cpf)) throw new HttpError(422, "CPF inválido");
-      if (db.users.some((u) => u.email === email)) throw new HttpError(409, "E-mail já cadastrado");
-      if (body.cpf && db.users.some((u) => u.cpf === body.cpf)) throw new HttpError(409, "CPF já cadastrado");
+      check(body, {
+        name: ["required", "fullname"], email: ["required", "email"], password: ["required", "password"],
+        cpf: ["required", "cpf"], phone: ["required", "phone"], driver_license: ["cnh"],
+      });
+      const email = String(body.email).trim().toLowerCase();
+      const cpf = digits(body.cpf);
+      if (db.users.some((u) => u.email === email)) throw fieldError(409, "email", "Já existe uma conta com este e-mail");
+      if (db.users.some((u) => u.cpf === cpf)) throw fieldError(409, "cpf", "Já existe uma conta com este CPF");
       const user = {
-        id: db.seq++, name: body.name, email, password_hash: await hash(body.password),
-        phone: body.phone || null, cpf: body.cpf || null, driver_license: body.driver_license || null,
+        id: db.seq++, name: body.name.trim().replace(/\s+/g, " "), email, password_hash: await hash(body.password),
+        phone: digits(body.phone), cpf, driver_license: blank(body.driver_license) ? null : digits(body.driver_license),
         role: "customer", active: true, created_at: nowIso(),
       };
       db.users.push(user);
       return [201, userOut(user)];
     }],
     ["POST", /^\/api\/auth\/login$/, async (db, { body }) => {
-      const user = db.users.find((u) => u.email === String(body.email || "").toLowerCase());
+      const user = db.users.find((u) => u.email === String(body.email || "").trim().toLowerCase());
       if (!user || user.password_hash !== (await hash(body.password || ""))) throw new HttpError(401, "E-mail ou senha inválidos");
       if (!user.active) throw new HttpError(403, "Usuário desativado");
       const token = crypto.randomUUID();
@@ -165,16 +191,11 @@ const LocalApi = (() => {
     ["GET", /^\/api\/auth\/me$/, async (db, { token }) => [200, userOut(currentUser(db, token))]],
     ["PATCH", /^\/api\/auth\/me$/, async (db, { token, body }) => {
       const user = currentUser(db, token);
-      if ("name" in body) {
-        if (!body.name || body.name.length < 2) throw new HttpError(422, "Nome muito curto");
-        user.name = body.name;
-      }
-      if ("phone" in body) user.phone = body.phone;
-      if ("driver_license" in body) user.driver_license = body.driver_license;
-      if (body.password) {
-        if (body.password.length < 6) throw new HttpError(422, "A senha precisa de ao menos 6 caracteres");
-        user.password_hash = await hash(body.password);
-      }
+      check(body, { name: ["fullname"], phone: ["phone"], driver_license: ["cnh"], password: ["password"] });
+      if (!blank(body.name)) user.name = body.name.trim().replace(/\s+/g, " ");
+      if ("phone" in body) user.phone = blank(body.phone) ? null : digits(body.phone);
+      if ("driver_license" in body) user.driver_license = blank(body.driver_license) ? null : digits(body.driver_license);
+      if (!blank(body.password)) user.password_hash = await hash(body.password);
       return [200, userOut(user)];
     }],
 
@@ -196,7 +217,7 @@ const LocalApi = (() => {
       requireAdmin(db, token);
       const data = normalizeVehicle(body);
       validateVehicle(data, false);
-      if (db.vehicles.some((v) => v.plate === data.plate)) throw new HttpError(409, "Placa já cadastrada");
+      if (db.vehicles.some((v) => v.plate === data.plate)) throw fieldError(409, "plate", "Placa já cadastrada");
       const { daily_rate, ...rest } = data;
       const vehicle = {
         seats: 5, transmission: "manual", fuel: "flex", status: "available", color: null,
@@ -210,7 +231,7 @@ const LocalApi = (() => {
       const vehicle = findVehicle(db, params[0]);
       const { plate, daily_rate, ...data } = normalizeVehicle(body);
       validateVehicle({ ...data, ...(daily_rate !== undefined && { daily_rate }) }, true);
-      Object.assign(vehicle, data);
+      for (const [k, v] of Object.entries(data)) if (!blank(v) || k === "color") vehicle[k] = blank(v) ? null : v;
       if (daily_rate !== undefined) vehicle.daily_rate_cents = toCents(daily_rate);
       return [200, vehicleOut(vehicle)];
     }],
@@ -254,8 +275,8 @@ const LocalApi = (() => {
     }],
     ["POST", /^\/api\/rentals$/, async (db, { token, body }) => {
       const user = currentUser(db, token);
-      if (body.start_date < today()) throw new HttpError(422, "A retirada não pode ser no passado");
-      if (!user.driver_license) throw new HttpError(422, "Cadastre sua CNH no perfil antes de reservar");
+      if (body.start_date < today()) throw fieldError(422, "start_date", "A retirada não pode ser no passado");
+      if (!user.driver_license) throw fieldError(422, "driver_license", "Cadastre sua CNH para reservar");
       const vehicle = findVehicle(db, body.vehicle_id);
       if (vehicle.status !== "available") throw new HttpError(409, "Veículo indisponível para locação");
       const q = quote(db, vehicle, body.start_date, body.end_date);
@@ -338,7 +359,7 @@ const LocalApi = (() => {
         save(db);
         return { status, data };
       } catch (e) {
-        if (e instanceof HttpError) return { status: e.status, data: { detail: e.message } };
+        if (e instanceof HttpError) return { status: e.status, data: { detail: e.message, errors: e.errors } };
         throw e;
       }
     }

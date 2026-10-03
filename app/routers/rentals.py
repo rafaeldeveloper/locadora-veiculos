@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
+from app.errors import FieldError
 from app.models import Rental, User
 from app.routers.vehicles import get_vehicle_or_404
 from app.schemas import QuoteIn, QuoteOut, RentalCreate, RentalOut, cents_to_reais
@@ -35,9 +36,9 @@ def quote(data: QuoteIn, db: Session = Depends(get_db)):
 @router.post("", response_model=RentalOut, status_code=status.HTTP_201_CREATED)
 def create_rental(data: RentalCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if data.start_date < date.today():
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "A retirada não pode ser no passado")
+        raise FieldError(status.HTTP_422_UNPROCESSABLE_ENTITY, "start_date", "A retirada não pode ser no passado")
     if not user.driver_license:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Cadastre sua CNH no perfil antes de reservar")
+        raise FieldError(status.HTTP_422_UNPROCESSABLE_ENTITY, "driver_license", "Cadastre sua CNH para reservar")
     vehicle = get_vehicle_or_404(db, data.vehicle_id)
     if vehicle.status != "available":
         raise HTTPException(status.HTTP_409_CONFLICT, "Veículo indisponível para locação")

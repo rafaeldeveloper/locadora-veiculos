@@ -33,23 +33,50 @@
 
     <section id="view-auth" class="view hidden">
       <div class="auth-grid">
-        <form id="form-login" class="card">
+        <form id="form-login" class="card auth-card">
           <h2>Entrar</h2>
-          <label>E-mail <input name="email" type="email" required></label>
-          <label>Senha <input name="password" type="password" required></label>
-          <button class="btn">Entrar</button>
+          <p class="muted form-sub">Acesse suas reservas.</p>
+          <label>E-mail <input name="email" type="email" autocomplete="email" data-rules="required email"></label>
+          <label>Senha
+            <span class="pass-wrap"><input name="password" type="password" autocomplete="current-password" data-rules="required"><button type="button" class="pass-toggle">Mostrar</button></span>
+          </label>
+          <button class="btn block">Entrar</button>
+          <p class="muted switch">Não tem conta? <a href="#" data-goto="form-register">Criar conta</a></p>
         </form>
-        <form id="form-register" class="card">
+        <form id="form-register" class="card auth-card">
           <h2>Criar conta</h2>
-          <label>Nome <input name="name" required minlength="2"></label>
-          <label>E-mail <input name="email" type="email" required></label>
-          <label>Senha <input name="password" type="password" required minlength="6"></label>
-          <div class="row">
-            <label>CPF <input name="cpf" placeholder="000.000.000-00"></label>
-            <label>Telefone <input name="phone"></label>
-          </div>
-          <label>CNH <input name="driver_license" placeholder="Obrigatória para reservar"></label>
-          <button class="btn">Cadastrar</button>
+          <p class="muted form-sub">Leva um minuto. A CNH só é exigida na hora de reservar.</p>
+          <fieldset>
+            <legend>Dados pessoais</legend>
+            <label><span class="lbl">Nome completo <span class="req">*</span></span>
+              <input name="name" autocomplete="name" maxlength="120" data-rules="required fullname" placeholder="Maria da Silva">
+            </label>
+            <div class="row">
+              <label><span class="lbl">CPF <span class="req">*</span></span>
+                <input name="cpf" inputmode="numeric" data-mask="cpf" data-rules="required cpf" placeholder="000.000.000-00">
+              </label>
+              <label><span class="lbl">Celular <span class="req">*</span></span>
+                <input name="phone" type="tel" autocomplete="tel-national" data-mask="phone" data-rules="required phone" placeholder="(00) 00000-0000">
+              </label>
+            </div>
+            <label><span class="lbl">CNH <span class="opt">opcional agora</span></span>
+              <input name="driver_license" inputmode="numeric" data-mask="cnh" data-rules="cnh" placeholder="11 dígitos" data-hint="Você pode cadastrar depois, no perfil.">
+            </label>
+          </fieldset>
+          <fieldset>
+            <legend>Acesso</legend>
+            <label><span class="lbl">E-mail <span class="req">*</span></span>
+              <input name="email" type="email" autocomplete="email" maxlength="160" data-rules="required email" placeholder="voce@email.com">
+            </label>
+            <label><span class="lbl">Senha <span class="req">*</span></span>
+              <span class="pass-wrap"><input name="password" type="password" autocomplete="new-password" data-rules="required password" data-strength><button type="button" class="pass-toggle">Mostrar</button></span>
+            </label>
+            <label><span class="lbl">Confirmar senha <span class="req">*</span></span>
+              <input name="password_confirm" type="password" autocomplete="new-password" data-rules="required confirm">
+            </label>
+          </fieldset>
+          <button class="btn block">Criar conta</button>
+          <p class="muted switch">Já tem conta? <a href="#" data-goto="form-login">Entrar</a></p>
         </form>
       </div>
     </section>
@@ -81,6 +108,10 @@
         </div>
         <p id="trip-summary" class="trip-summary"></p>
       </form>
+      <div id="cnh-notice" class="notice hidden">
+        <span>Para reservar, falta cadastrar sua <b>CNH</b>.</span>
+        <button type="button" class="btn small" data-goto-profile>Completar perfil</button>
+      </div>
       <p id="discounts" class="muted"></p>
       <div id="vehicle-list" class="grid"></div>
     </section>
@@ -93,11 +124,29 @@
     <section id="view-profile" class="view hidden">
       <form id="form-profile" class="card narrow">
         <h2>Meu perfil</h2>
-        <label>Nome <input name="name" required minlength="2"></label>
-        <label>Telefone <input name="phone"></label>
-        <label>CNH <input name="driver_license"></label>
-        <label>Nova senha <input name="password" type="password" minlength="6" placeholder="Deixe em branco para manter"></label>
-        <button class="btn">Salvar</button>
+        <p id="profile-ids" class="muted form-sub"></p>
+        <fieldset>
+          <legend>Dados</legend>
+          <label><span class="lbl">Nome completo <span class="req">*</span></span>
+            <input name="name" autocomplete="name" maxlength="120" data-rules="required fullname">
+          </label>
+          <label>Celular
+            <input name="phone" type="tel" data-mask="phone" data-rules="phone" placeholder="(00) 00000-0000">
+          </label>
+          <label>CNH
+            <input name="driver_license" inputmode="numeric" data-mask="cnh" data-rules="cnh" placeholder="11 dígitos" data-hint="Obrigatória para reservar.">
+          </label>
+        </fieldset>
+        <fieldset>
+          <legend>Trocar senha</legend>
+          <label>Nova senha
+            <span class="pass-wrap"><input name="password" type="password" autocomplete="new-password" data-rules="password" data-strength placeholder="Deixe em branco para manter"><button type="button" class="pass-toggle">Mostrar</button></span>
+          </label>
+          <label>Confirmar nova senha
+            <input name="password_confirm" type="password" autocomplete="new-password" data-rules="confirm">
+          </label>
+        </fieldset>
+        <button class="btn block">Salvar alterações</button>
       </form>
     </section>
 
@@ -115,10 +164,10 @@
           <h3 id="vehicle-form-title">Novo veículo</h3>
           <input type="hidden" name="id">
           <div class="row">
-            <label>Placa <input name="plate" required minlength="7" maxlength="8"></label>
-            <label>Marca <input name="brand" required></label>
-            <label>Modelo <input name="model" required></label>
-            <label>Ano <input name="year" type="number" min="1980" max="2100" required></label>
+            <label><span class="lbl">Placa <span class="req">*</span></span> <input name="plate" data-mask="plate" data-rules="required plate" placeholder="ABC-1D23"></label>
+            <label><span class="lbl">Marca <span class="req">*</span></span> <input name="brand" maxlength="60" data-rules="required"></label>
+            <label><span class="lbl">Modelo <span class="req">*</span></span> <input name="model" maxlength="60" data-rules="required"></label>
+            <label><span class="lbl">Ano <span class="req">*</span></span> <input name="year" type="number" inputmode="numeric" data-rules="required year"></label>
           </div>
           <div class="row">
             <label>Categoria
@@ -130,8 +179,8 @@
                 <option value="utilitario">Utilitário</option>
               </select>
             </label>
-            <label>Cor <input name="color"></label>
-            <label>Lugares <input name="seats" type="number" min="1" max="20" value="5"></label>
+            <label>Cor <input name="color" maxlength="30"></label>
+            <label>Lugares <input name="seats" type="number" min="1" max="20" value="5" data-rules="required range"></label>
             <label>Câmbio
               <select name="transmission"><option value="manual">Manual</option><option value="automatico">Automático</option></select>
             </label>
@@ -143,7 +192,7 @@
                 <option value="diesel">Diesel</option><option value="eletrico">Elétrico</option><option value="hibrido">Híbrido</option>
               </select>
             </label>
-            <label>Diária (R$) <input name="daily_rate" type="number" step="0.01" min="0.01" required></label>
+            <label><span class="lbl">Diária (R$) <span class="req">*</span></span> <input name="daily_rate" inputmode="decimal" data-rules="required money" placeholder="0,00"></label>
             <label>Status
               <select name="status"><option value="available">Disponível</option><option value="maintenance">Manutenção</option><option value="inactive">Inativo</option></select>
             </label>
@@ -167,8 +216,8 @@
       <div id="a-pricing" class="tab hidden">
         <p class="muted">O valor base de cada veículo é a diária, editada no cadastro do veículo. Aqui ficam os descontos por duração: vale a maior faixa atingida.</p>
         <form id="form-rule" class="card filters">
-          <label>A partir de (dias) <input name="min_days" type="number" min="2" max="365" required></label>
-          <label>Desconto (%) <input name="discount_percent" type="number" min="1" max="90" required></label>
+          <label>A partir de (dias) <input name="min_days" type="number" min="2" max="365" data-rules="required range"></label>
+          <label>Desconto (%) <input name="discount_percent" type="number" min="1" max="90" data-rules="required range"></label>
           <button class="btn">Salvar faixa</button>
         </form>
         <div class="table-wrap"><table id="admin-rules"></table></div>
@@ -182,6 +231,7 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/pt.min.js"></script>
+  <script src="validation.js"></script>
   <script src="local-api.js"></script>
   <script src="app.js"></script>
 </body>

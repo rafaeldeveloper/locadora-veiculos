@@ -8,7 +8,8 @@ A demo (pasta `docs/`) roda inteira no navegador: a mesma interface, com a API r
 
 ## Funcionalidades
 
-- **Usuários**: cadastro (nome, e-mail, senha, CPF, telefone, CNH), login com JWT e edição do próprio perfil.
+- **Usuários**: cadastro (nome completo, CPF, celular, e-mail, senha e CNH opcional), login com JWT e edição do próprio perfil.
+- **Validação**: CPF com dígito verificador, celular com DDD, CNH com 11 dígitos, placa nos padrões antigo e Mercosul, senha com 8+ caracteres, letras e números. As mesmas regras rodam no navegador (`app/static/validation.js`, com máscaras e erro embaixo de cada campo) e na API, que responde `422` com `{"detail": ..., "errors": {"campo": "mensagem"}}` em português. Documentos são guardados só com dígitos.
 - **Administradores**: papel `admin` com acesso ao painel. O primeiro admin é criado na inicialização a partir das variáveis `ADMIN_*`; outros usuários podem ser promovidos pelo painel. Admins também desativam contas.
 - **Veículos**: cadastro com placa, marca, modelo, ano, categoria, cor, lugares, câmbio, combustível, diária e status (`available`, `maintenance`, `inactive`).
 - **Valores**: diária por veículo e faixas de desconto por duração (ex.: 7+ dias = 10%). Vale a maior faixa atingida. Valores guardados em centavos para não haver erro de arredondamento.
@@ -68,8 +69,11 @@ app/
   models.py        # User, Vehicle, PricingRule, Rental
   schemas.py       # validação de entrada/saída
   services.py      # cálculo de preço e disponibilidade
+  validators.py    # CPF, celular, CNH, placa, senha
+  errors.py        # erros de validação por campo, em português
   routers/         # auth, vehicles, pricing, rentals, admin
   static/          # interface web (HTML/CSS/JS puro)
 seed.py            # dados de exemplo
+scripts/build_demo.py  # gera a demo em docs/ a partir de app/static/
 tests/             # testes da API
 ```
