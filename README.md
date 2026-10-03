@@ -2,6 +2,10 @@
 
 Sistema de aluguel de veículos com API REST (FastAPI + SQLite) e interface web.
 
+**Demo online:** https://rafaeldeveloper.github.io/locadora-veiculos/
+
+A demo (pasta `docs/`) roda inteira no navegador: a mesma interface, com a API reproduzida em JavaScript e os dados no `localStorage`. Serve para conhecer o sistema; não tem segurança real nem compartilha dados entre visitantes. Login de admin na demo: `admin@locadora.com` / `admin123`.
+
 ## Funcionalidades
 
 - **Usuários**: cadastro (nome, e-mail, senha, CPF, telefone, CNH), login com JWT e edição do próprio perfil.
