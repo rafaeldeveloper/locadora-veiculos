@@ -9,6 +9,7 @@
   --danger: #c93c37;
   --ok: #1a7f37;
   --warn: #9a6700;
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,6 +23,7 @@
     --danger: #f0716b;
     --ok: #4ac26b;
     --warn: #d4a72c;
+    color-scheme: dark;
   }
 }
 
@@ -45,6 +47,16 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
 input, select { font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); }
 .row, .filters, .actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
 .filters label { margin-bottom: 0; }
+.period { flex: 2; min-width: 220px; }
+.period input { cursor: pointer; }
+.flatpickr-calendar { font-family: inherit; }
+.flatpickr-calendar .flatpickr-day.hidden { display: inline-block !important; visibility: hidden; }
+.durations { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 14px; font-size: 13px; }
+.durations button { font: inherit; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; }
+.durations button.active { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }
+.trip-summary { margin: 12px 0 0; font-size: 14px; color: var(--muted); }
+.trip-summary b { color: var(--text); }
+.trip-summary .discount { color: var(--ok); font-weight: 600; }
 
 .btn { font: inherit; padding: 9px 16px; border-radius: 8px; border: 1px solid var(--primary); background: var(--primary); color: var(--primary-text); cursor: pointer; }
 .btn.ghost { background: transparent; color: var(--text); border-color: var(--border); }

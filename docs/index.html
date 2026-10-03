@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Locadora de Veículos (demo)</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/themes/dark.min.css" media="(prefers-color-scheme: dark)">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -53,7 +55,8 @@
     </section>
 
     <section id="view-vehicles" class="view">
-      <form id="form-search" class="filters card">
+      <form id="form-search" class="card">
+        <div class="filters">
         <label>Categoria
           <select name="category">
             <option value="">Todas</option>
@@ -64,9 +67,19 @@
             <option value="utilitario">Utilitário</option>
           </select>
         </label>
-        <label>Retirada <input name="start_date" type="date"></label>
-        <label>Devolução <input name="end_date" type="date"></label>
-        <button class="btn">Buscar</button>
+        <label class="period">Período <input id="date-range" placeholder="Retirada → devolução"></label>
+        <input type="hidden" name="start_date">
+        <input type="hidden" name="end_date">
+        </div>
+        <div class="durations" id="durations">
+          <span class="muted">Duração:</span>
+          <button type="button" data-days="1">1 dia</button>
+          <button type="button" data-days="3">3 dias</button>
+          <button type="button" data-days="7">1 semana</button>
+          <button type="button" data-days="15">15 dias</button>
+          <button type="button" data-days="30">1 mês</button>
+        </div>
+        <p id="trip-summary" class="trip-summary"></p>
       </form>
       <p id="discounts" class="muted"></p>
       <div id="vehicle-list" class="grid"></div>
@@ -167,6 +180,8 @@
     <form method="dialog" id="quote-body"></form>
   </dialog>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/pt.min.js"></script>
   <script src="local-api.js"></script>
   <script src="app.js"></script>
 </body>

@@ -85,12 +85,57 @@ async function login(email, password) {
   show("vehicles");
 }
 
+/* ---------- Datas da locação ---------- */
+
+let tripDays = 3;
+let pricingRules = [];
+let datePicker = null;
+
+const isoLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const parseIso = (iso) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+const addDays = (iso, n) => {
+  const d = parseIso(iso);
+  d.setDate(d.getDate() + n);
+  return isoLocal(d);
+};
+const daysBetween = (a, b) => Math.round((parseIso(b) - parseIso(a)) / 86400000);
+const fmtLong = (iso) => parseIso(iso).toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" });
+
+function setDates(changed, reload = true) {
+  const f = $("#form-search");
+  const today = isoLocal(new Date());
+  if (!f.start_date.value) f.start_date.value = addDays(today, 1);
+  if (f.start_date.value < today) f.start_date.value = today;
+  if (changed === "range" && f.end_date.value > f.start_date.value) {
+    tripDays = daysBetween(f.start_date.value, f.end_date.value);
+  }
+  f.end_date.value = addDays(f.start_date.value, tripDays);
+  datePicker?.setDate([f.start_date.value, f.end_date.value], false);
+  renderTripSummary();
+  if (reload) loadVehicles();
+}
+
+function renderTripSummary() {
+  const f = $("#form-search");
+  if (!f.start_date.value) return;
+  $$("#durations button").forEach((b) => b.classList.toggle("active", Number(b.dataset.days) === tripDays));
+  const rule = pricingRules.filter((r) => r.min_days <= tripDays).sort((a, b) => b.min_days - a.min_days)[0];
+  $("#trip-summary").innerHTML =
+    `<b>${tripDays} ${tripDays === 1 ? "diária" : "diárias"}</b> · retirada ${fmtLong(f.start_date.value)}, devolução ${fmtLong(f.end_date.value)}` +
+    (rule ? ` · <span class="discount">${rule.discount_percent}% de desconto</span>` : "");
+}
+
 /* ---------- Veículos (cliente) ---------- */
 
 async function loadVehicles() {
   const params = new URLSearchParams(formData($("#form-search")));
   try {
     const [vehicles, rules] = await Promise.all([api(`/api/vehicles?${params}`), api("/api/pricing-rules")]);
+    pricingRules = rules;
+    renderTripSummary();
     $("#discounts").textContent = rules.length
       ? "Descontos por duração: " + rules.map((r) => `${r.min_days}+ dias: ${r.discount_percent}%`).join(" · ")
       : "";
@@ -311,9 +356,30 @@ $("#form-register").addEventListener("submit", async (e) => {
   }
 });
 
-$("#form-search").addEventListener("submit", (e) => {
-  e.preventDefault();
-  loadVehicles();
+$("#form-search").addEventListener("submit", (e) => e.preventDefault());
+$("#form-search").category.addEventListener("change", loadVehicles);
+$("#durations").addEventListener("click", (e) => {
+  if (!e.target.dataset.days) return;
+  tripDays = Number(e.target.dataset.days);
+  setDates("duration");
+});
+datePicker = flatpickr("#date-range", {
+  mode: "range",
+  locale: "pt",
+  minDate: "today",
+  dateFormat: "Y-m-d",
+  altInput: true,
+  altFormat: "d/m/Y",
+  showMonths: window.innerWidth > 700 ? 2 : 1,
+  disableMobile: true,
+  onClose: (dates) => {
+    const f = $("#form-search");
+    if (dates.length) {
+      f.start_date.value = isoLocal(dates[0]);
+      f.end_date.value = dates[1] ? isoLocal(dates[1]) : "";
+    }
+    setDates("range");
+  },
 });
 
 $("#vehicle-list").addEventListener("click", (e) => e.target.dataset.reserve && openQuote(Number(e.target.dataset.reserve)));
@@ -434,8 +500,5 @@ $("#admin-rules").addEventListener("click", async (e) => {
   }
 });
 
-const today = new Date().toISOString().slice(0, 10);
-$("#form-search").start_date.min = today;
-$("#form-search").end_date.min = today;
-
+setDates("init", false);
 loadMe().then(() => show("vehicles"));
