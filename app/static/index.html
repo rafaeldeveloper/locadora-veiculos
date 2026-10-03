@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Locadora de Veículos</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">🚗 Locadora</div>
+    <nav id="nav">
+      <button data-view="vehicles" class="active">Veículos</button>
+      <button data-view="rentals" class="auth-only">Minhas reservas</button>
+      <button data-view="profile" class="auth-only">Perfil</button>
+      <button data-view="admin" class="admin-only">Administração</button>
+    </nav>
+    <div class="session">
+      <span id="who"></span>
+      <button id="btn-login" class="btn small">Entrar</button>
+      <button id="btn-logout" class="btn small ghost auth-only">Sair</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="toast" class="toast hidden"></div>
+
+    <section id="view-auth" class="view hidden">
+      <div class="auth-grid">
+        <form id="form-login" class="card">
+          <h2>Entrar</h2>
+          <label>E-mail <input name="email" type="email" required></label>
+          <label>Senha <input name="password" type="password" required></label>
+          <button class="btn">Entrar</button>
+        </form>
+        <form id="form-register" class="card">
+          <h2>Criar conta</h2>
+          <label>Nome <input name="name" required minlength="2"></label>
+          <label>E-mail <input name="email" type="email" required></label>
+          <label>Senha <input name="password" type="password" required minlength="6"></label>
+          <div class="row">
+            <label>CPF <input name="cpf" placeholder="000.000.000-00"></label>
+            <label>Telefone <input name="phone"></label>
+          </div>
+          <label>CNH <input name="driver_license" placeholder="Obrigatória para reservar"></label>
+          <button class="btn">Cadastrar</button>
+        </form>
+      </div>
+    </section>
+
+    <section id="view-vehicles" class="view">
+      <form id="form-search" class="filters card">
+        <label>Categoria
+          <select name="category">
+            <option value="">Todas</option>
+            <option value="economico">Econômico</option>
+            <option value="intermediario">Intermediário</option>
+            <option value="suv">SUV</option>
+            <option value="executivo">Executivo</option>
+            <option value="utilitario">Utilitário</option>
+          </select>
+        </label>
+        <label>Retirada <input name="start_date" type="date"></label>
+        <label>Devolução <input name="end_date" type="date"></label>
+        <button class="btn">Buscar</button>
+      </form>
+      <p id="discounts" class="muted"></p>
+      <div id="vehicle-list" class="grid"></div>
+    </section>
+
+    <section id="view-rentals" class="view hidden">
+      <h2>Minhas reservas</h2>
+      <div class="table-wrap"><table id="my-rentals"></table></div>
+    </section>
+
+    <section id="view-profile" class="view hidden">
+      <form id="form-profile" class="card narrow">
+        <h2>Meu perfil</h2>
+        <label>Nome <input name="name" required minlength="2"></label>
+        <label>Telefone <input name="phone"></label>
+        <label>CNH <input name="driver_license"></label>
+        <label>Nova senha <input name="password" type="password" minlength="6" placeholder="Deixe em branco para manter"></label>
+        <button class="btn">Salvar</button>
+      </form>
+    </section>
+
+    <section id="view-admin" class="view hidden">
+      <div id="stats" class="stats"></div>
+      <div class="tabs" id="admin-tabs">
+        <button data-tab="a-vehicles" class="active">Veículos</button>
+        <button data-tab="a-rentals">Locações</button>
+        <button data-tab="a-users">Usuários</button>
+        <button data-tab="a-pricing">Valores e descontos</button>
+      </div>
+
+      <div id="a-vehicles" class="tab">
+        <form id="form-vehicle" class="card">
+          <h3 id="vehicle-form-title">Novo veículo</h3>
+          <input type="hidden" name="id">
+          <div class="row">
+            <label>Placa <input name="plate" required minlength="7" maxlength="8"></label>
+            <label>Marca <input name="brand" required></label>
+            <label>Modelo <input name="model" required></label>
+            <label>Ano <input name="year" type="number" min="1980" max="2100" required></label>
+          </div>
+          <div class="row">
+            <label>Categoria
+              <select name="category">
+                <option value="economico">Econômico</option>
+                <option value="intermediario">Intermediário</option>
+                <option value="suv">SUV</option>
+                <option value="executivo">Executivo</option>
+                <option value="utilitario">Utilitário</option>
+              </select>
+            </label>
+            <label>Cor <input name="color"></label>
+            <label>Lugares <input name="seats" type="number" min="1" max="20" value="5"></label>
+            <label>Câmbio
+              <select name="transmission"><option value="manual">Manual</option><option value="automatico">Automático</option></select>
+            </label>
+          </div>
+          <div class="row">
+            <label>Combustível
+              <select name="fuel">
+                <option value="flex">Flex</option><option value="gasolina">Gasolina</option><option value="etanol">Etanol</option>
+                <option value="diesel">Diesel</option><option value="eletrico">Elétrico</option><option value="hibrido">Híbrido</option>
+              </select>
+            </label>
+            <label>Diária (R$) <input name="daily_rate" type="number" step="0.01" min="0.01" required></label>
+            <label>Status
+              <select name="status"><option value="available">Disponível</option><option value="maintenance">Manutenção</option><option value="inactive">Inativo</option></select>
+            </label>
+          </div>
+          <div class="actions">
+            <button class="btn">Salvar</button>
+            <button type="button" id="vehicle-reset" class="btn ghost">Limpar</button>
+          </div>
+        </form>
+        <div class="table-wrap"><table id="admin-vehicles"></table></div>
+      </div>
+
+      <div id="a-rentals" class="tab hidden">
+        <div class="table-wrap"><table id="admin-rentals"></table></div>
+      </div>
+
+      <div id="a-users" class="tab hidden">
+        <div class="table-wrap"><table id="admin-users"></table></div>
+      </div>
+
+      <div id="a-pricing" class="tab hidden">
+        <p class="muted">O valor base de cada veículo é a diária, editada no cadastro do veículo. Aqui ficam os descontos por duração: vale a maior faixa atingida.</p>
+        <form id="form-rule" class="card filters">
+          <label>A partir de (dias) <input name="min_days" type="number" min="2" max="365" required></label>
+          <label>Desconto (%) <input name="discount_percent" type="number" min="1" max="90" required></label>
+          <button class="btn">Salvar faixa</button>
+        </form>
+        <div class="table-wrap"><table id="admin-rules"></table></div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="dlg-quote">
+    <form method="dialog" id="quote-body"></form>
+  </dialog>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
